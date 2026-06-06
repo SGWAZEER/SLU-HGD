@@ -2,8 +2,8 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const bcrypt = require('bcrypt');
 
-// Use local SQLite file for Codespace
-const dbPath = process.env.DB_PATH || path.join(__dirname, '../sges.db');
+// Use ephemeral SQLite file on deployment, allow DB_PATH override for local development
+const dbPath = process.env.DB_PATH || path.join(process.env.TMPDIR || '/tmp', 'sges.db');
 const db = new sqlite3.Database(dbPath);
 
 // Enable foreign keys
@@ -261,6 +261,18 @@ const repository = {
       [title, abstract || '', fileUrl || '', category, authorId]
     );
     return result.lastID;
+  },
+  searchApproved: (query, category) => {
+    const search = query ? `%${query}%` : '%';
+    const categoryFilter = category ? category : '%';
+    return dbAll(
+      `SELECT * FROM repository
+       WHERE approved = 1
+         AND (title LIKE ? OR abstract LIKE ? OR category LIKE ?)
+         AND category LIKE ?
+       ORDER BY created_at DESC`,
+      [search, search, search, categoryFilter]
+    );
   },
   approve: (id) => {
     return dbRun('UPDATE repository SET approved = 1 WHERE id = ?', [id]);
